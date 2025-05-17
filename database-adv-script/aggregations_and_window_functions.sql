@@ -16,11 +16,13 @@ ORDER BY
 
 
 -- Ranking Properties by Number of Bookings
+
+-- 1. Using RANK()
 SELECT
   property_id,
   name,
   booking_count,
-  ROW_NUMBER() OVER (
+  RANK() OVER (
     ORDER BY booking_count DESC
   ) AS booking_rank
 FROM (
@@ -38,4 +40,23 @@ FROM (
 ) AS prop_counts
 ORDER BY
   booking_rank;
+-- 2. Using ROW_NUMBER()
+SELECT
+  property_id,
+  name,
+  booking_count,
+  ROW_NUMBER() OVER (ORDER BY booking_count DESC) AS row_num_rank
+FROM (
+  SELECT
+    p.property_id,
+    p.name,
+    COUNT(b.booking_id) AS booking_count
+  FROM properties AS p
+  LEFT JOIN bookings AS b
+    ON p.property_id = b.property_id
+  GROUP BY
+    p.property_id,
+    p.name
+) AS prop_counts
+ORDER BY row_num_rank;
 
