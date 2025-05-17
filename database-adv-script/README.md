@@ -1,6 +1,10 @@
-# database-script-0x03: JOIN Queries
+# database-script-0x03: SQL Query Examples
 
-This directory contains three SQL query examples demonstrating different types of joins in our AirBnB‑style schema. Each query retrieves data by combining rows from related tables to solve common reporting use cases.
+This directory contains SQL query examples demonstrating:
+
+1. Different types of joins in our AirBnB‑style schema (INNER, LEFT, FULL OUTER) to combine related tables for reporting.
+2. Use of subqueries to perform aggregations and filters across tables.
+3. Use of correlated subqueries to find records based on per-row calculations.
 
 ---
 
@@ -27,7 +31,6 @@ ORDER BY b.created_at;
 ```
 
 * **INNER JOIN** returns only those bookings that are linked to a valid user.
-* Use this when you need combined booking+user information for all confirmed relationships.
 
 ---
 
@@ -52,7 +55,6 @@ ORDER BY p.property_id, r.created_at;
 ```
 
 * **LEFT JOIN** returns every property regardless of whether it has reviews.
-* Review columns will be `NULL` for properties with no feedback.
 
 ---
 
@@ -80,11 +82,61 @@ FULL OUTER JOIN bookings AS b
 ORDER BY u.user_id NULLS FIRST, b.created_at;
 ```
 
-* **FULL OUTER JOIN** returns:
+* **FULL OUTER JOIN** returns all users (with `NULL` booking columns if no bookings) and all bookings (with `NULL` user columns if orphaned).
 
-  * All users (with `NULL` booking columns if they haven’t booked)
-  * All bookings (with `NULL` user columns if orphaned)
-* Useful for auditing orphaned records or ensuring comprehensive coverage.
+---
+
+## 4. Properties with High Average Rating (Subquery)
+
+**Objective:** Find all properties where the average rating is greater than 4.0.
+
+```sql
+SELECT
+  p.property_id,
+  p.name,
+  p.location,
+  avg_reviews.avg_rating
+FROM properties AS p
+JOIN (
+  SELECT
+    property_id,
+    AVG(rating) AS avg_rating
+  FROM reviews
+  GROUP BY property_id
+) AS avg_reviews
+  ON p.property_id = avg_reviews.property_id
+WHERE avg_reviews.avg_rating > 4.0
+ORDER BY avg_reviews.avg_rating DESC;
+```
+
+* The subquery computes the average rating per property, then filters for `avg_rating > 4.0`.
+
+---
+
+## 5. Users with More Than Three Bookings (Correlated Subquery)
+
+**Objective:** Identify users who have made more than 3 bookings.
+
+```sql
+SELECT
+  u.user_id,
+  u.first_name,
+  u.last_name,
+  (
+    SELECT COUNT(*)
+    FROM bookings AS b
+    WHERE b.user_id = u.user_id
+  ) AS booking_count
+FROM users AS u
+WHERE (
+    SELECT COUNT(*)
+    FROM bookings AS b
+    WHERE b.user_id = u.user_id
+  ) > 3
+ORDER BY booking_count DESC;
+```
+
+* The correlated subquery counts bookings per user, and the outer `WHERE` filters those with more than 3.
 
 ---
 
@@ -93,4 +145,3 @@ ORDER BY u.user_id NULLS FIRST, b.created_at;
 1. Connect to your PostgreSQL database where the schema is loaded.
 2. Copy and paste the desired query into your SQL client (psql, pgAdmin, etc.).
 3. Execute and review the result set.
-
