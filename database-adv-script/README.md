@@ -2,9 +2,11 @@
 
 This directory contains SQL query examples demonstrating:
 
-1. Different types of joins in our AirBnB‑style schema (INNER, LEFT, FULL OUTER) to combine related tables for reporting.
+1. Different types of joins in our AirBnB‑style schema (INNER, LEFT, FULL OUTER).
 2. Use of subqueries to perform aggregations and filters across tables.
 3. Use of correlated subqueries to find records based on per-row calculations.
+4. Use of aggregation with `GROUP BY` to summarize data.
+5. Use of window functions to rank or number rows within partitions.
 
 ---
 
@@ -60,7 +62,7 @@ ORDER BY p.property_id, r.created_at;
 
 ## 3. All Users and All Bookings (FULL OUTER JOIN)
 
-**Objective:** Retrieve every user and every booking, even if some users have never booked or some bookings lack a valid user link.
+**Objective:** Retrieve every user and every booking, even if users have no bookings or bookings lack a valid user link.
 
 ```sql
 SELECT
@@ -82,7 +84,7 @@ FULL OUTER JOIN bookings AS b
 ORDER BY u.user_id NULLS FIRST, b.created_at;
 ```
 
-* **FULL OUTER JOIN** returns all users (with `NULL` booking columns if no bookings) and all bookings (with `NULL` user columns if orphaned).
+* **FULL OUTER JOIN** returns all users (with `NULL` booking columns if none) and all bookings (with `NULL` user columns if orphaned).
 
 ---
 
@@ -109,7 +111,7 @@ WHERE avg_reviews.avg_rating > 4.0
 ORDER BY avg_reviews.avg_rating DESC;
 ```
 
-* The subquery computes the average rating per property, then filters for `avg_rating > 4.0`.
+* The subquery calculates average ratings by property, then filters for averages above 4.0.
 
 ---
 
@@ -136,7 +138,64 @@ WHERE (
 ORDER BY booking_count DESC;
 ```
 
-* The correlated subquery counts bookings per user, and the outer `WHERE` filters those with more than 3.
+* The correlated subquery counts each user’s bookings and the outer `WHERE` filters those counts.
+
+---
+
+## 6. Total Bookings per User (GROUP BY)
+
+**Objective:** Find the total number of bookings made by each user.
+
+```sql
+SELECT
+  u.user_id,
+  u.first_name,
+  u.last_name,
+  COUNT(b.booking_id) AS total_bookings
+FROM users AS u
+LEFT JOIN bookings AS b
+  ON u.user_id = b.user_id
+GROUP BY
+  u.user_id,
+  u.first_name,
+  u.last_name
+ORDER BY total_bookings DESC;
+```
+
+* Uses `COUNT(...)` and `GROUP BY` on user columns.
+* `LEFT JOIN` ensures users with zero bookings appear with `total_bookings = 0`.
+
+---
+
+## 7. Ranking Properties by Booking Count (Window Function)
+
+**Objective:** Rank properties based on the total number of bookings they have received.
+
+```sql
+SELECT
+  property_id,
+  name,
+  booking_count,
+  RANK() OVER (
+    ORDER BY booking_count DESC
+  ) AS booking_rank
+FROM (
+  SELECT
+    p.property_id,
+    p.name,
+    COUNT(b.booking_id) AS booking_count
+  FROM properties AS p
+  LEFT JOIN bookings AS b
+    ON p.property_id = b.property_id
+  GROUP BY
+    p.property_id,
+    p.name
+) AS prop_counts
+ORDER BY booking_rank;
+```
+
+* Inner aggregation groups by property and counts bookings.
+* `RANK() OVER` assigns ranks, with ties sharing the same rank.
 
 ---
 
@@ -145,3 +204,5 @@ ORDER BY booking_count DESC;
 1. Connect to your PostgreSQL database where the schema is loaded.
 2. Copy and paste the desired query into your SQL client (psql, pgAdmin, etc.).
 3. Execute and review the result set.
+
+
